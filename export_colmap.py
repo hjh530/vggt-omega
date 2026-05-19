@@ -175,13 +175,13 @@ def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width
             d = depth[i, ..., 0]
             H, W = d.shape
             y, x = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
-            fx_h = intrinsics[i, 0, 0] / pp_w * image_width  # not used for unprojection at pp res
-            fy_h = intrinsics[i, 1, 1] / pp_h * image_height
-            cx_h = intrinsics[i, 0, 2] / pp_w * image_width
-            cy_h = intrinsics[i, 1, 2] / pp_h * image_height
+            fx = float(intrinsics[i, 0, 0])
+            fy = float(intrinsics[i, 1, 1])
+            cx = float(intrinsics[i, 0, 2])
+            cy = float(intrinsics[i, 1, 2])
             cam_pts = np.stack([
-                (x - cx_h) / fx_h * d,
-                (y - cy_h) / fy_h * d,
+                (x - cx) / fx * d,
+                (y - cy) / fy * d,
                 d,
             ], axis=-1)  # [H, W, 3]
             R = extrinsics[i, :3, :3]
