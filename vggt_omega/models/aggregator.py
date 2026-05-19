@@ -100,6 +100,7 @@ class Aggregator(nn.Module):
     def forward(
         self,
         images: torch.Tensor,
+        chunk_size: int = 128,
     ) -> tuple[list[torch.Tensor | None], int]:
         batch_size, num_frames, num_channels, height, width = images.shape
         if num_channels != 3:
@@ -111,19 +112,28 @@ class Aggregator(nn.Module):
         camera_token = slice_expand_and_flatten(self.camera_token, batch_size, num_frames)
         register_token = slice_expand_and_flatten(self.register_token, batch_size, num_frames)
 
-        patch_tokens = self.patch_embed(images)
-        if isinstance(patch_tokens, dict):
-            patch_tokens = patch_tokens["x_norm_patchtokens"]
+        # Chunked backbone: process images through DINOv2 in chunks to save GPU memory
+        total_frames = batch_size * num_frames
+        patch_tokens_list = []
+        for i in range(0, total_frames, chunk_size):
+            end = min(i + chunk_size, total_frames)
+            chunk = self.patch_embed(images[i:end])
+            if isinstance(chunk, dict):
+                chunk = chunk["x_norm_patchtokens"]
+            patch_tokens_list.append(chunk)
+        patch_tokens = torch.cat(patch_tokens_list, dim=0)
+        del patch_tokens_list, images
 
         tokens = torch.cat([camera_token, register_token, patch_tokens], dim=1)
+        del camera_token, register_token, patch_tokens
         _, num_tokens, embed_dim = tokens.shape
 
         patch_grid_size = (height // self.patch_size, width // self.patch_size)
         with torch.no_grad():
             rope_sin, rope_cos = self.rope_embed(H=patch_grid_size[0], W=patch_grid_size[1])
             frame_rope = (
-                rope_sin.to(device=patch_tokens.device, dtype=torch.float32),
-                rope_cos.to(device=patch_tokens.device, dtype=torch.float32),
+                rope_sin.to(device=tokens.device, dtype=torch.float32),
+                rope_cos.to(device=tokens.device, dtype=torch.float32),
             )
 
         outputs = []
@@ -147,7 +157,10 @@ class Aggregator(nn.Module):
                 self.inter_frame_attention_types[block_idx],
             )
             if block_idx in self.cached_layer_indices:
-                outputs.append(torch.cat([frame_tokens, tokens], dim=-1))
+                # Move cached outputs to CPU immediately (VGGT-X strategy)
+                cached = torch.cat([frame_tokens, tokens], dim=-1)
+                outputs.append(cached.cpu())
+                del cached
             else:
                 outputs.append(None)
 

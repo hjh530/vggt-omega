@@ -40,6 +40,12 @@ class VGGTOmega(nn.Module):
         with torch.autocast(device_type="cuda", dtype=amp_dtype):
             aggregated_tokens_list, patch_token_start = self.aggregator(images)
 
+        # Move cached tokens from CPU back to GPU for head processing
+        device = images.device
+        for i, t in enumerate(aggregated_tokens_list):
+            if t is not None:
+                aggregated_tokens_list[i] = t.to(device)
+
         final_tokens = aggregated_tokens_list[-1]
         if final_tokens is None:
             raise ValueError("Aggregator did not cache the final layer, which VGGTOmega needs.")
