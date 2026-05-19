@@ -250,7 +250,7 @@ def main():
     parser = argparse.ArgumentParser(description="Export VGGT-Omega predictions to COLMAP format")
     parser.add_argument("--predictions", required=True, help="Path to predictions.npz")
     parser.add_argument("--image-dir", required=True, help="Directory containing input images (same as inference)")
-    parser.add_argument("--output", required=True, help="Output directory for COLMAP model")
+    parser.add_argument("--output", default="output/sparse/0", help="Output directory (default: output/sparse/0)")
     parser.add_argument("--conf-thres", type=float, default=3.0, help="Depth confidence threshold (default: 3.0)")
     parser.add_argument("--stride", type=int, default=8, help="Point cloud subsampling stride (default: 8)")
     args = parser.parse_args()
