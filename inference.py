@@ -53,7 +53,7 @@ def main():
     parser.add_argument("--image-resolution", type=int, default=512, help="Image resolution (default: 512)")
     parser.add_argument("--mode", choices=["balanced", "max_size"], default="balanced",
                         help="Preprocessing mode: balanced or max_size (default: balanced)")
-    parser.add_argument("--patch-size", type=int, default=14, help="Patch size (default: 14, for VGGT-Omega)")
+    parser.add_argument("--patch-size", type=int, default=16, help="Patch size (default: 16)")
     parser.add_argument("--batch-size", type=int, default=200, help="Images per forward pass (default: 200, max ~24GB VRAM)")
     parser.add_argument("--output", default="output.npz", help="Output .npz file (default: output.npz)")
     args = parser.parse_args()
