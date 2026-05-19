@@ -6,7 +6,28 @@ import struct
 
 import cv2
 import numpy as np
+from PIL import Image
 from tqdm import tqdm
+
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
+
+
+def scan_image_dir(path: str) -> list[str]:
+    p = os.path.abspath(path)
+    if not os.path.isdir(p):
+        raise NotADirectoryError(p)
+    files = []
+    for f in sorted(os.listdir(p)):
+        if os.path.splitext(f)[1].lower() in IMG_EXTS:
+            files.append(os.path.join(p, f))
+    if not files:
+        raise FileNotFoundError(f"No images found in {p}")
+    return files
+
+
+def get_image_size(path: str) -> tuple[int, int]:
+    with Image.open(path) as img:
+        return img.size  # (width, height)
 
 
 # === COLMAP binary write helpers ===
@@ -228,17 +249,20 @@ def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width
 def main():
     parser = argparse.ArgumentParser(description="Export VGGT-Omega predictions to COLMAP format")
     parser.add_argument("--predictions", required=True, help="Path to predictions.npz")
-    parser.add_argument("--images", nargs="+", required=True, help="Input image paths (same order as inference)")
+    parser.add_argument("--image-dir", required=True, help="Directory containing input images (same as inference)")
     parser.add_argument("--output", required=True, help="Output directory for COLMAP model")
-    parser.add_argument("--width", type=int, required=True, help="Original image width")
-    parser.add_argument("--height", type=int, required=True, help="Original image height")
     parser.add_argument("--conf-thres", type=float, default=3.0, help="Depth confidence threshold (default: 3.0)")
     parser.add_argument("--stride", type=int, default=8, help="Point cloud subsampling stride (default: 8)")
     args = parser.parse_args()
 
+    image_paths = scan_image_dir(args.image_dir)
+    width, height = get_image_size(image_paths[0])
+    print(f"Found {len(image_paths)} images, original size {width}x{height}")
+
+    os.makedirs(args.output, exist_ok=True)
     predictions_to_colmap(
-        args.predictions, args.images, args.output,
-        args.width, args.height,
+        args.predictions, image_paths, args.output,
+        width, height,
         conf_thres=args.conf_thres, stride=args.stride,
     )
 
