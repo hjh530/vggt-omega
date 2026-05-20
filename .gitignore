@@ -3,3 +3,5 @@ vggt-omega/
 *.npz
 __pycache__/
 *.egg-info/
+checkpoints/
+CLAUDE.md
