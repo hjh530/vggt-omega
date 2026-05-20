@@ -17,6 +17,9 @@ IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
 
 def scan_image_dir(path: str) -> list[str]:
     p = os.path.abspath(path)
+    # If the directory contains an "images" subfolder, use it
+    if os.path.isdir(os.path.join(p, "images")):
+        p = os.path.join(p, "images")
     if not os.path.isdir(p):
         raise NotADirectoryError(p)
     files = []
@@ -36,7 +39,7 @@ def get_image_size(path: str) -> tuple[int, int]:
 def main():
     parser = argparse.ArgumentParser(description="VGGT-Omega local inference")
     parser.add_argument("--checkpoint", required=True, help="Model checkpoint path (.pt)")
-    parser.add_argument("--image-dir", required=True, help="Directory containing input images")
+    parser.add_argument("--image-dir", required=True, help="Directory containing images/ subfolder with input images")
     parser.add_argument("--image-resolution", type=int, default=512, help="Image resolution (default: 512)")
     parser.add_argument("--mode", choices=["balanced", "max_size"], default="max_size")
     parser.add_argument("--patch-size", type=int, default=16)
@@ -48,8 +51,7 @@ def main():
     image_paths = scan_image_dir(args.image_dir)
     print(f"Found {len(image_paths)} images in {args.image_dir}")
 
-    parent = os.path.dirname(os.path.normpath(args.image_dir))
-    folder_name = os.path.basename(parent)
+    folder_name = os.path.basename(os.path.normpath(args.image_dir))
     if args.output is None:
         out_dir = os.path.join(args.output_dir, folder_name)
         args.output = os.path.join(out_dir, "predictions.npz")

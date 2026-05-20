@@ -14,6 +14,8 @@ IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
 
 def scan_image_dir(path: str) -> list[str]:
     p = os.path.abspath(path)
+    if os.path.isdir(os.path.join(p, "images")):
+        p = os.path.join(p, "images")
     if not os.path.isdir(p):
         raise NotADirectoryError(p)
     files = []
@@ -254,8 +256,8 @@ def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width
 
 def main():
     parser = argparse.ArgumentParser(description="Export VGGT-Omega predictions to COLMAP format")
-    parser.add_argument("--predictions", required=True, help="Path to predictions.npz")
-    parser.add_argument("--image-dir", required=True, help="Directory containing input images (same as inference)")
+    parser.add_argument("--predictions", default=None, help="Path to predictions.npz (auto-derived if not set)")
+    parser.add_argument("--image-dir", required=True, help="Directory containing images/ subfolder (same as inference)")
     parser.add_argument("--output-dir", default="output", help="Base output directory (default: output)")
     parser.add_argument("--output", default=None, help="Output directory (auto-derived from image-dir if not set)")
     parser.add_argument("--conf-thres", type=float, default=3.0, help="Depth confidence threshold (default: 3.0)")
@@ -267,8 +269,9 @@ def main():
     width, height = get_image_size(image_paths[0])
     print(f"Found {len(image_paths)} images, original size {width}x{height}")
 
-    parent = os.path.dirname(os.path.normpath(args.image_dir))
-    folder_name = os.path.basename(parent)
+    folder_name = os.path.basename(os.path.normpath(args.image_dir))
+    if args.predictions is None:
+        args.predictions = os.path.join(args.output_dir, folder_name, "predictions.npz")
     if args.output is None:
         args.output = os.path.join(args.output_dir, folder_name, "sparse", "0")
 
