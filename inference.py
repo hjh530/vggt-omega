@@ -41,11 +41,18 @@ def main():
     parser.add_argument("--mode", choices=["balanced", "max_size"], default="max_size")
     parser.add_argument("--patch-size", type=int, default=16)
     parser.add_argument("--batch-size", type=int, default=200)
-    parser.add_argument("--output", required=True, help="Output .npz file")
+    parser.add_argument("--output-dir", default="output", help="Base output directory (default: output)")
+    parser.add_argument("--output", default=None, help="Output .npz path (auto-derived from image-dir if not set)")
     args = parser.parse_args()
 
     image_paths = scan_image_dir(args.image_dir)
     print(f"Found {len(image_paths)} images in {args.image_dir}")
+
+    parent = os.path.dirname(os.path.normpath(args.image_dir))
+    folder_name = os.path.basename(parent)
+    if args.output is None:
+        out_dir = os.path.join(args.output_dir, folder_name)
+        args.output = os.path.join(out_dir, "predictions.npz")
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 

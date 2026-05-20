@@ -102,7 +102,7 @@ def write_points3D_binary(points3D, path):
                 write_next_bytes(fid, [img_id, pt2d_idx], "ii")
 
 
-def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width, image_height, conf_thres=3.0, stride=8):
+def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width, image_height, conf_thres=3.0, stride=8, shared_camera=False):
     """Convert VGGT-Omega predictions to COLMAP binary model with point cloud from depth."""
 
     data = np.load(predictions_path)
@@ -128,34 +128,40 @@ def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width
     scale_x = image_width / pp_w
     scale_y = image_height / pp_h
 
-    # Write cameras and images
-    cameras = {}
-    images = {}
+    # Compute all intrinsics at original resolution
+    all_fx = intrinsics[:, 0, 0] * scale_x
+    all_fy = intrinsics[:, 1, 1] * scale_y
+    all_cx = intrinsics[:, 0, 2] * scale_x
+    all_cy = intrinsics[:, 1, 2] * scale_y
 
-    for i in range(N):
-        camera_id = i + 1
-        image_id = i + 1
-
-        K = intrinsics[i]
-        fx = float(K[0, 0]) * scale_x
-        fy = float(K[1, 1]) * scale_y
-        cx = float(K[0, 2]) * scale_x
-        cy = float(K[1, 2]) * scale_y
-
-        cameras[camera_id] = {
-            "id": camera_id,
+    if shared_camera:
+        cameras = {1: {
+            "id": 1,
             "model": "PINHOLE",
             "width": image_width,
             "height": image_height,
-            "params": [fx, fy, cx, cy],
-        }
+            "params": [float(np.median(all_fx)), float(np.median(all_fy)),
+                       float(np.median(all_cx)), float(np.median(all_cy))],
+        }}
+    else:
+        cameras = {}
+        for i in range(N):
+            cameras[i + 1] = {
+                "id": i + 1,
+                "model": "PINHOLE",
+                "width": image_width,
+                "height": image_height,
+                "params": [float(all_fx[i]), float(all_fy[i]), float(all_cx[i]), float(all_cy[i])],
+            }
 
+    images = {}
+    for i in range(N):
+        camera_id = 1 if shared_camera else i + 1
+        image_id = i + 1
         R = extrinsics[i, :3, :3]
         t = extrinsics[i, :3, 3]
         qvec = rotmat2qvec(R)
-
         name = os.path.basename(image_paths[i])
-
         images[image_id] = {
             "id": image_id,
             "qvec": qvec,
@@ -250,20 +256,28 @@ def main():
     parser = argparse.ArgumentParser(description="Export VGGT-Omega predictions to COLMAP format")
     parser.add_argument("--predictions", required=True, help="Path to predictions.npz")
     parser.add_argument("--image-dir", required=True, help="Directory containing input images (same as inference)")
-    parser.add_argument("--output", default="output/sparse/0", help="Output directory (default: output/sparse/0)")
+    parser.add_argument("--output-dir", default="output", help="Base output directory (default: output)")
+    parser.add_argument("--output", default=None, help="Output directory (auto-derived from image-dir if not set)")
     parser.add_argument("--conf-thres", type=float, default=3.0, help="Depth confidence threshold (default: 3.0)")
     parser.add_argument("--stride", type=int, default=8, help="Point cloud subsampling stride (default: 8)")
+    parser.add_argument("--shared-camera", action="store_true", help="Use a single shared camera (median intrinsics)")
     args = parser.parse_args()
 
     image_paths = scan_image_dir(args.image_dir)
     width, height = get_image_size(image_paths[0])
     print(f"Found {len(image_paths)} images, original size {width}x{height}")
 
+    parent = os.path.dirname(os.path.normpath(args.image_dir))
+    folder_name = os.path.basename(parent)
+    if args.output is None:
+        args.output = os.path.join(args.output_dir, folder_name, "sparse", "0")
+
     os.makedirs(args.output, exist_ok=True)
     predictions_to_colmap(
         args.predictions, image_paths, args.output,
         width, height,
         conf_thres=args.conf_thres, stride=args.stride,
+        shared_camera=args.shared_camera,
     )
 
 
