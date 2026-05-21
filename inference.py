@@ -72,9 +72,12 @@ def main():
     ext_np = extrinsics.cpu().numpy()
     int_np = intrinsics.cpu().numpy()
 
+    image_names = np.array([os.path.basename(p) for p in image_paths])
+
     print(f"Saving to {args.output}")
     np.savez(args.output, depth=depth, depth_conf=depth_conf,
-             extrinsics=ext_np, intrinsics=int_np)
+             extrinsics=ext_np, intrinsics=int_np,
+             image_names=image_names)
 
     print("Done.")
     print(f"  Depth:      {depth.shape}")

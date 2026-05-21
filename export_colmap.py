@@ -107,12 +107,32 @@ def write_points3D_binary(points3D, path):
 def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width, image_height, conf_thres=3.0, stride=8, shared_camera=False):
     """Convert VGGT-Omega predictions to COLMAP binary model with point cloud from depth."""
 
-    data = np.load(predictions_path)
+    data = np.load(predictions_path, allow_pickle=True)
     extrinsics = data["extrinsics"]
     intrinsics = data["intrinsics"]
     depth = data["depth"]
     depth_conf = data["depth_conf"]
     world_points = data.get("world_points", None)
+
+    # Use stored image names if available, otherwise rely on scan order
+    if "image_names" in data:
+        npz_names = list(data["image_names"])
+        if len(npz_names) != len(image_paths):
+            raise ValueError(
+                f"npz has {len(npz_names)} names but found {len(image_paths)} images. "
+                "The image directory may have changed since inference."
+            )
+        # Verify ordering matches
+        for i, (npz_name, path) in enumerate(zip(npz_names, image_paths)):
+            if os.path.basename(path) != npz_name:
+                raise ValueError(
+                    f"Image mismatch at index {i}: npz expects '{npz_name}' "
+                    f"but found '{os.path.basename(path)}'"
+                )
+        print(f"Validated {len(npz_names)} image names match npz order")
+        image_basenames = npz_names
+    else:
+        image_basenames = [os.path.basename(p) for p in image_paths]
 
     # Remove batch dim if present
     if extrinsics.ndim == 4:
@@ -163,7 +183,7 @@ def predictions_to_colmap(predictions_path, image_paths, output_dir, image_width
         R = extrinsics[i, :3, :3]
         t = extrinsics[i, :3, 3]
         qvec = rotmat2qvec(R)
-        name = os.path.basename(image_paths[i])
+        name = image_basenames[i]
         images[image_id] = {
             "id": image_id,
             "qvec": qvec,
