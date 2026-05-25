@@ -112,7 +112,7 @@ class Aggregator(nn.Module):
         camera_token = slice_expand_and_flatten(self.camera_token, batch_size, num_frames)
         register_token = slice_expand_and_flatten(self.register_token, batch_size, num_frames)
 
-        # Chunked backbone: process images through DINOv2 in chunks to save GPU memory
+        # Chunked backbone: process images through DINOv3 in chunks to save GPU memory
         total_frames = batch_size * num_frames
         patch_tokens_list = []
         for i in range(0, total_frames, chunk_size):
